@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math Drop</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #game {
+    width: 100%;
+    max-width: 480px;
+    height: 100%;
+    position: relative;
+    background: rgba(255,255,255,0.3);
+  }
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    font-weight: bold;
+    color: #333;
+    z-index: 10;
+  }
+  .question {
+    position: absolute;
+    background: #FFD700;
+    border: 4px solid #FF8C00;
+    border-radius: 16px;
+    padding: 12px 20px;
+    font-size: 28px;
+    font-weight: bold;
+    color: #333;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    text-align: center;
+    min-width: 120px;
+  }
+  #answers {
+    position: absolute;
+    bottom: 20px;
+    left: 10px;
+    right: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    z-index: 10;
+  }
+  button {
+    padding: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    border: none;
+    border-radius: 16px;
+    background: #4CAF50;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #388E3C;
+    transition: transform 0.1s;
+  }
+  button:active { transform: translateY(4px); box-shadow: none; }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    z-index: 20;
+  }
+  #overlay h1 { font-size: 48px; margin-bottom: 20px; }
+  #overlay p { font-size: 28px; margin: 10px 0; }
+  #startBtn, #restartBtn {
+    margin-top: 30px;
+    padding: 18px 40px;
+    font-size: 24px;
+    background: #FF5722;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="hud">
+    <div>Skor: <span id="score">0</span></div>
+    <div>Level: <span id="level">1</span></div>
+    <div>Nyawa: <span id="lives">❤️❤️❤️</span></div>
+  </div>
+  <div id="questions"></div>
+  <div id="answers"></div>
+  <div id="overlay">
+    <h1 id="overlayTitle">Math Drop</h1>
+    <p id="overlayText">Jawab soalan sebelum sampai bawah!</p>
+    <button id="startBtn">Mula Main</button>
+    <button id="restartBtn" style="display:none">Main Semula</button>
+  </div>
+</div>
+
+<script>
+const game = document.getElementById('game');
+const questionsEl = document.getElementById('questions');
+const answersEl = document.getElementById('answers');
+const scoreEl = document.getElementById('score');
+const levelEl = document.getElementById('level');
+const livesEl = document.getElementById('lives');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlayTitle');
+const overlayText = document.getElementById('overlayText');
+const startBtn = document.getElementById('startBtn');
+const restartBtn = document.getElementById('restartBtn');
+
+let score = 0, level = 1, lives = 3;
+let speed = 1.2;
+let currentQuestion = null;
+let gameRunning = false;
+let spawnInterval;
+
+function playSound(freq, type = 'sine', duration = 0.15) {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+function generateQuestion() {
+  const max = 5 + level * 3;
+  const a = Math.floor(Math.random() * max) + 1;
+  const b = Math.floor(Math.random() * max) + 1;
+  const isAdd = Math.random() > 0.4;
+  const answer = isAdd ? a + b : a - b;
+  const text = isAdd ? `${a} + \( {b}` : ` \){Math.max(a,b)} - ${Math.min(a,b)}`;
+  return { text, answer };
+}
+
+function spawnQuestion() {
+  if (!gameRunning) return;
+  const q = generateQuestion();
+  const el = document.createElement('div');
+  el.className = 'question';
+  el.textContent = q.text;
+  el.style.left = Math.random() * 60 + 10 + '%';
+  el.style.top = '-60px';
+  questionsEl.appendChild(el);
+
+  const correct = q.answer;
+  const options = new Set([correct]);
+  while (options.size < 4) {
+    options.add(correct + Math.floor(Math.random() * 11) - 5);
+  }
+  const shuffled = [...options].sort(() => Math.random() - 0.5);
+
+  answersEl.innerHTML = '';
+  shuffled.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.textContent = opt;
+    btn.onclick = () => checkAnswer(opt, correct, el);
+    answersEl.appendChild(btn);
+  });
+
+  currentQuestion = { el, correct };
+  animate(el);
+}
+
+function animate(el) {
+  let y = -60;
+  function move() {
+    if (!gameRunning || !el.parentNode) return;
+    y += speed;
+    el.style.top = y + 'px';
+    if (y > game.clientHeight - 100) {
+      miss();
+      el.remove();
+      return;
+    }
+    requestAnimationFrame(move);
+  }
+  requestAnimationFrame(move);
+}
+
+function checkAnswer(chosen, correct, el) {
+  if (chosen === correct) {
+    score += 10 * level;
+    playSound(800, 'sine', 0.1);
+    el.style.background = '#4CAF50';
+    setTimeout(() => el.remove(), 200);
+    if (score % 100 === 0) {
+      level++;
+      speed += 0.3;
+      levelEl.textContent = level;
+    }
+  } else {
+    playSound(200, 'square', 0.2);
+    miss();
+  }
+  scoreEl.textContent = score;
+  currentQuestion = null;
+}
+
+function miss() {
+  lives--;
+  updateLives();
+  playSound(150, 'sawtooth', 0.3);
+  if (lives <= 0) gameOver();
+}
+
+function updateLives() {
+  livesEl.textContent = '❤️'.repeat(Math.max(0, lives));
+}
+
+function gameOver() {
+  gameRunning = false;
+  clearInterval(spawnInterval);
+  const high = localStorage.getItem('mathdrop-high') || 0;
+  if (score > high) localStorage.setItem('mathdrop-high', score);
+  overlayTitle.textContent = 'Game Over';
+  overlayText.innerHTML = `Skor: ${score}<br>High Score: ${Math.max(score, high)}`;
+  startBtn.style.display = 'none';
+  restartBtn.style.display = 'block';
+  overlay.style.display = 'flex';
+}
+
+function startGame() {
+  score = 0; level = 1; lives = 3; speed = 1.2;
+  scoreEl.textContent = 0;
+  levelEl.textContent = 1;
+  updateLives();
+  questionsEl.innerHTML = '';
+  answersEl.innerHTML = '';
+  overlay.style.display = 'none';
+  gameRunning = true;
+  spawnInterval = setInterval(spawnQuestion, 2200);
+  spawnQuestion();
+}
+
+startBtn.onclick = startGame;
+restartBtn.onclick = startGame;
+
+// Show start screen
+overlay.style.display = 'flex';
+</script>
+</body>
+</html>
