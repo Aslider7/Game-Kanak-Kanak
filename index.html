@@ -2,93 +2,112 @@
 <html lang="ms">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Math Drop</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 100%);
+    background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 50%, #FFF9C4 100%);
     height: 100vh;
     overflow: hidden;
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     align-items: center;
   }
   #game {
     width: 100%;
-    max-width: 480px;
+    max-width: 500px;
     height: 100%;
     position: relative;
-    background: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.15);
   }
   #hud {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
+    top: 12px;
+    left: 12px;
+    right: 12px;
     display: flex;
     justify-content: space-between;
-    font-size: 20px;
+    font-size: 22px;
     font-weight: bold;
-    color: #333;
+    color: #1a1a1a;
+    text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
     z-index: 10;
   }
   .question {
     position: absolute;
-    background: #FFD700;
-    border: 4px solid #FF8C00;
-    border-radius: 16px;
-    padding: 12px 20px;
-    font-size: 28px;
+    background: #FFEB3B;
+    border: 5px solid #FF9800;
+    border-radius: 20px;
+    padding: 14px 22px;
+    font-size: 32px;
     font-weight: bold;
     color: #333;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25);
     text-align: center;
-    min-width: 120px;
+    min-width: 140px;
+    transition: background 0.2s;
+  }
+  .question.correct {
+    background: #4CAF50;
+    color: white;
+    border-color: #2E7D32;
   }
   #answers {
     position: absolute;
-    bottom: 20px;
-    left: 10px;
-    right: 10px;
+    bottom: 24px;
+    left: 12px;
+    right: 12px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    gap: 14px;
     z-index: 10;
   }
-  button {
-    padding: 20px;
-    font-size: 28px;
+  button.answer {
+    padding: 22px 10px;
+    font-size: 32px;
     font-weight: bold;
     border: none;
-    border-radius: 16px;
+    border-radius: 18px;
     background: #4CAF50;
     color: white;
     cursor: pointer;
-    box-shadow: 0 4px 0 #388E3C;
-    transition: transform 0.1s;
+    box-shadow: 0 6px 0 #2E7D32;
+    transition: transform 0.08s, box-shadow 0.08s;
   }
-  button:active { transform: translateY(4px); box-shadow: none; }
+  button.answer:active {
+    transform: translateY(6px);
+    box-shadow: 0 0 0 #2E7D32;
+  }
   #overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0,0,0,0.7);
-    display: none;
+    background: rgba(0,0,0,0.75);
+    display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     color: white;
     z-index: 20;
+    text-align: center;
+    padding: 20px;
   }
-  #overlay h1 { font-size: 48px; margin-bottom: 20px; }
-  #overlay p { font-size: 28px; margin: 10px 0; }
-  #startBtn, #restartBtn {
-    margin-top: 30px;
-    padding: 18px 40px;
-    font-size: 24px;
+  #overlay h1 { font-size: 52px; margin-bottom: 16px; }
+  #overlay p { font-size: 26px; line-height: 1.5; }
+  .big-btn {
+    margin-top: 32px;
+    padding: 18px 48px;
+    font-size: 26px;
+    font-weight: bold;
+    border: none;
+    border-radius: 16px;
     background: #FF5722;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #E64A19;
   }
+  .big-btn:active { transform: translateY(4px); box-shadow: none; }
 </style>
 </head>
 <body>
@@ -98,19 +117,18 @@
     <div>Level: <span id="level">1</span></div>
     <div>Nyawa: <span id="lives">❤️❤️❤️</span></div>
   </div>
-  <div id="questions"></div>
+  <div id="questionsContainer"></div>
   <div id="answers"></div>
   <div id="overlay">
     <h1 id="overlayTitle">Math Drop</h1>
-    <p id="overlayText">Jawab soalan sebelum sampai bawah!</p>
-    <button id="startBtn">Mula Main</button>
-    <button id="restartBtn" style="display:none">Main Semula</button>
+    <p id="overlayText">Jawab soalan sebelum sampai ke bawah!</p>
+    <button class="big-btn" id="actionBtn">Mula Main</button>
   </div>
 </div>
 
 <script>
-const game = document.getElementById('game');
-const questionsEl = document.getElementById('questions');
+// ========== VARIABLES ==========
+const questionsContainer = document.getElementById('questionsContainer');
 const answersEl = document.getElementById('answers');
 const scoreEl = document.getElementById('score');
 const levelEl = document.getElementById('level');
@@ -118,77 +136,138 @@ const livesEl = document.getElementById('lives');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlayTitle');
 const overlayText = document.getElementById('overlayText');
-const startBtn = document.getElementById('startBtn');
-const restartBtn = document.getElementById('restartBtn');
+const actionBtn = document.getElementById('actionBtn');
 
-let score = 0, level = 1, lives = 3;
-let speed = 1.2;
-let currentQuestion = null;
+let score = 0;
+let level = 1;
+let lives = 3;
+let correctCount = 0;
+let speed = 1.4;
 let gameRunning = false;
-let spawnInterval;
+let spawnTimer = null;
+let activeQuestions = [];
 
-function playSound(freq, type = 'sine', duration = 0.15) {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = type;
-  osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0.1, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime + duration);
+// ========== AUDIO ==========
+function playSound(frequency, type = 'sine', duration = 0.12) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, ctx.currentTime);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch (e) {}
 }
 
+// ========== QUESTION GENERATOR ==========
 function generateQuestion() {
-  const max = 5 + level * 3;
-  const a = Math.floor(Math.random() * max) + 1;
-  const b = Math.floor(Math.random() * max) + 1;
-  const isAdd = Math.random() > 0.4;
-  const answer = isAdd ? a + b : a - b;
-  const text = isAdd ? `${a} + \( {b}` : ` \){Math.max(a,b)} - ${Math.min(a,b)}`;
+  let a, b, answer, text, operator;
+
+  if (level <= 3) {
+    // Tambah & Tolak, nombor 1-10
+    a = Math.floor(Math.random() * 10) + 1;
+    b = Math.floor(Math.random() * 10) + 1;
+    operator = Math.random() > 0.5 ? '+' : '-';
+  } else if (level <= 6) {
+    // Tambah & Tolak, nombor 1-20
+    a = Math.floor(Math.random() * 20) + 1;
+    b = Math.floor(Math.random() * 20) + 1;
+    operator = Math.random() > 0.5 ? '+' : '-';
+  } else {
+    // Tambah, Tolak, Darab
+    const ops = ['+', '-', '×'];
+    operator = ops[Math.floor(Math.random() * ops.length)];
+    if (operator === '×') {
+      a = Math.floor(Math.random() * 10) + 1;
+      b = Math.floor(Math.random() * 10) + 1;
+    } else {
+      a = Math.floor(Math.random() * 15) + 1;
+      b = Math.floor(Math.random() * 15) + 1;
+    }
+  }
+
+  if (operator === '+') {
+    answer = a + b;
+    text = `${a} + ${b}`;
+  } else if (operator === '-') {
+    if (a < b) [a, b] = [b, a];
+    answer = a - b;
+    text = `${a} - ${b}`;
+  } else {
+    answer = a * b;
+    text = `${a} × ${b}`;
+  }
+
   return { text, answer };
 }
 
+// ========== SPAWN QUESTION ==========
 function spawnQuestion() {
   if (!gameRunning) return;
+
   const q = generateQuestion();
   const el = document.createElement('div');
   el.className = 'question';
   el.textContent = q.text;
-  el.style.left = Math.random() * 60 + 10 + '%';
-  el.style.top = '-60px';
-  questionsEl.appendChild(el);
+  el.style.left = (Math.random() * 55 + 8) + '%';
+  el.style.top = '-80px';
+  questionsContainer.appendChild(el);
 
-  const correct = q.answer;
-  const options = new Set([correct]);
-  while (options.size < 4) {
-    options.add(correct + Math.floor(Math.random() * 11) - 5);
-  }
-  const shuffled = [...options].sort(() => Math.random() - 0.5);
+  const questionObj = {
+    el,
+    answer: q.answer,
+    y: -80,
+    answered: false
+  };
+  activeQuestions.push(questionObj);
 
-  answersEl.innerHTML = '';
-  shuffled.forEach(opt => {
-    const btn = document.createElement('button');
-    btn.textContent = opt;
-    btn.onclick = () => checkAnswer(opt, correct, el);
-    answersEl.appendChild(btn);
-  });
+  // Generate answer buttons
+  generateAnswerButtons(q.answer);
 
-  currentQuestion = { el, correct };
-  animate(el);
+  animateQuestion(questionObj);
 }
 
-function animate(el) {
-  let y = -60;
+function generateAnswerButtons(correct) {
+  const options = new Set([correct]);
+  let attempts = 0;
+  while (options.size < 4 && attempts < 20) {
+    const offset = Math.floor(Math.random() * 9) - 4; // -4 to +4
+    if (offset !== 0) options.add(correct + offset);
+    attempts++;
+  }
+  // Fallback if not enough
+  while (options.size < 4) {
+    options.add(correct + options.size);
+  }
+
+  const shuffled = Array.from(options).sort(() => Math.random() - 0.5);
+  answersEl.innerHTML = '';
+
+  shuffled.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'answer';
+    btn.textContent = opt;
+    btn.onclick = () => handleAnswer(opt, correct);
+    answersEl.appendChild(btn);
+  });
+}
+
+// ========== ANIMATION ==========
+function animateQuestion(qObj) {
   function move() {
-    if (!gameRunning || !el.parentNode) return;
-    y += speed;
-    el.style.top = y + 'px';
-    if (y > game.clientHeight - 100) {
-      miss();
-      el.remove();
+    if (!gameRunning || qObj.answered || !qObj.el.parentNode) return;
+
+    qObj.y += speed;
+    qObj.el.style.top = qObj.y + 'px';
+
+    if (qObj.y > window.innerHeight - 160) {
+      // Missed
+      missQuestion(qObj);
       return;
     }
     requestAnimationFrame(move);
@@ -196,65 +275,111 @@ function animate(el) {
   requestAnimationFrame(move);
 }
 
-function checkAnswer(chosen, correct, el) {
+// ========== ANSWER HANDLING ==========
+function handleAnswer(chosen, correct) {
+  if (!gameRunning) return;
+
+  // Find the current falling question (latest one)
+  const current = activeQuestions.find(q => !q.answered);
+  if (!current) return;
+
   if (chosen === correct) {
+    // Correct
+    current.answered = true;
+    current.el.classList.add('correct');
     score += 10 * level;
-    playSound(800, 'sine', 0.1);
-    el.style.background = '#4CAF50';
-    setTimeout(() => el.remove(), 200);
-    if (score % 100 === 0) {
+    correctCount++;
+    scoreEl.textContent = score;
+    playSound(880, 'sine', 0.1);
+
+    setTimeout(() => {
+      if (current.el.parentNode) current.el.remove();
+    }, 250);
+
+    // Level up every 10 correct
+    if (correctCount >= 10) {
+      correctCount = 0;
       level++;
-      speed += 0.3;
       levelEl.textContent = level;
+      speed = 1.4 + (level - 1) * 0.35;
+      playSound(523, 'triangle', 0.2);
     }
   } else {
-    playSound(200, 'square', 0.2);
-    miss();
+    // Wrong
+    playSound(180, 'square', 0.25);
+    loseLife();
   }
-  scoreEl.textContent = score;
-  currentQuestion = null;
+
+  // Remove from active
+  activeQuestions = activeQuestions.filter(q => q !== current);
 }
 
-function miss() {
+function missQuestion(qObj) {
+  qObj.answered = true;
+  if (qObj.el.parentNode) qObj.el.remove();
+  activeQuestions = activeQuestions.filter(q => q !== qObj);
+  playSound(150, 'sawtooth', 0.3);
+  loseLife();
+}
+
+function loseLife() {
   lives--;
   updateLives();
-  playSound(150, 'sawtooth', 0.3);
-  if (lives <= 0) gameOver();
+  if (lives <= 0) {
+    endGame();
+  }
 }
 
 function updateLives() {
   livesEl.textContent = '❤️'.repeat(Math.max(0, lives));
 }
 
-function gameOver() {
-  gameRunning = false;
-  clearInterval(spawnInterval);
-  const high = localStorage.getItem('mathdrop-high') || 0;
-  if (score > high) localStorage.setItem('mathdrop-high', score);
-  overlayTitle.textContent = 'Game Over';
-  overlayText.innerHTML = `Skor: ${score}<br>High Score: ${Math.max(score, high)}`;
-  startBtn.style.display = 'none';
-  restartBtn.style.display = 'block';
-  overlay.style.display = 'flex';
-}
-
+// ========== GAME CONTROL ==========
 function startGame() {
-  score = 0; level = 1; lives = 3; speed = 1.2;
-  scoreEl.textContent = 0;
-  levelEl.textContent = 1;
-  updateLives();
-  questionsEl.innerHTML = '';
+  // Reset
+  score = 0;
+  level = 1;
+  lives = 3;
+  correctCount = 0;
+  speed = 1.4;
+  activeQuestions.forEach(q => q.el.remove());
+  activeQuestions = [];
+  questionsContainer.innerHTML = '';
   answersEl.innerHTML = '';
+
+  scoreEl.textContent = '0';
+  levelEl.textContent = '1';
+  updateLives();
+
   overlay.style.display = 'none';
   gameRunning = true;
-  spawnInterval = setInterval(spawnQuestion, 2200);
+
+  // Spawn first question immediately
   spawnQuestion();
+  // Then every 2.2 seconds
+  spawnTimer = setInterval(spawnQuestion, 2200);
 }
 
-startBtn.onclick = startGame;
-restartBtn.onclick = startGame;
+function endGame() {
+  gameRunning = false;
+  clearInterval(spawnTimer);
 
-// Show start screen
+  const highScore = parseInt(localStorage.getItem('mathdrop-highscore') || '0');
+  if (score > highScore) {
+    localStorage.setItem('mathdrop-highscore', score);
+  }
+
+  overlayTitle.textContent = 'Game Over';
+  overlayText.innerHTML = `Skor kamu: <b>\( {score}</b><br>High Score: <b> \){Math.max(score, highScore)}</b>`;
+  actionBtn.textContent = 'Main Semula';
+  overlay.style.display = 'flex';
+  playSound(120, 'sawtooth', 0.5);
+}
+
+// ========== EVENT ==========
+actionBtn.addEventListener('click', startGame);
+
+// Initial screen
 overlay.style.display = 'flex';
 </script>
 </body>
